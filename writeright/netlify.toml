@@ -1,0 +1,7 @@
+[build]
+  publish = "."
+  functions = "netlify/functions"
+
+[functions]
+  # 使用 Python 函数时，避免 Node.js 打包干扰
+  node_bundler = "none"

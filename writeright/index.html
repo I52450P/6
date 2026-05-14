@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WriteRight - 中式英语改写</title>
+    <style>
+        /* 所有样式保持不变，省略重复代码，你直接复制之前完整版就行 */
+        /* 为节省篇幅，此处仅展示核心修改，实际使用时请复制之前完整样式 */
+    </style>
+</head>
+<body data-theme="minimal">
+
+    <div class="theme-switcher">
+        <button class="theme-btn active" data-theme="minimal">🌿 简约</button>
+        <button class="theme-btn" data-theme="sci-fi">🚀 科幻</button>
+        <button class="theme-btn" data-theme="fresh">🍃 清新</button>
+    </div>
+
+    <div class="container">
+        <h1>WriteRight</h1>
+        <p class="subtitle">把中式英语变成地道表达，附详细修改解释</p>
+        <textarea id="inputText" placeholder="输入英文句子..."></textarea>
+        <button onclick="convert()">开始改写</button>
+        <div id="result"></div>
+    </div>
+
+    <div class="quote-box">
+        <div id="dailyQuote"></div>
+    </div>
+
+    <script>
+        // 主题切换逻辑（保持不变）
+        const themeBtns = document.querySelectorAll('.theme-btn');
+        function setActiveTheme(theme) {
+            document.body.dataset.theme = theme;
+            themeBtns.forEach(btn => btn.classList.toggle('active', btn.dataset.theme === theme));
+            localStorage.setItem('writereight-theme', theme);
+        }
+        const savedTheme = localStorage.getItem('writereight-theme') || 'minimal';
+        setActiveTheme(savedTheme);
+        themeBtns.forEach(btn => {
+            btn.addEventListener('click', () => setActiveTheme(btn.dataset.theme));
+        });
+
+        // 每日金句
+        const quotes = [
+            { en: "The only way to do great work is to love what you do.", author: "Steve Jobs", zh: "成就一番伟业的唯一途径就是热爱自己的事业。" },
+            { en: "In the middle of difficulty lies opportunity.", author: "Albert Einstein", zh: "困难之中，必有机遇。" },
+            { en: "Do what you can, with what you have, where you are.", author: "Theodore Roosevelt", zh: "就地取材，尽其所能。" },
+            { en: "It is never too late to be what you might have been.", author: "George Eliot", zh: "成为你可能成为的人，永远不会太晚。" },
+            { en: "Language is the road map of a culture.", author: "Rita Mae Brown", zh: "语言是文化的地图。" },
+            { en: "Words are, of course, the most powerful drug used by mankind.", author: "Rudyard Kipling", zh: "言语无疑是人类所使用的效力最大的药物。" },
+            { en: "We are what we repeatedly do. Excellence, then, is not an act, but a habit.", author: "Aristotle", zh: "我们重复做什么，就会成为什么样的人。卓越不是一种行为，而是一种习惯。" }
+        ];
+        function showRandomQuote() {
+            const quote = quotes[Math.floor(Math.random() * quotes.length)];
+            document.getElementById("dailyQuote").innerHTML = `
+                <div class="quote-text">“${quote.en}”</div>
+                <div class="quote-author">— ${quote.author}</div>
+                <div class="quote-translation">${quote.zh}</div>
+            `;
+        }
+        showRandomQuote();
+
+        // 核心转换函数（适配 Netlify Functions）
+        async function convert() {
+            const input = document.getElementById("inputText").value.trim();
+            if (!input) return alert("请先输入英文句子");
+
+            document.getElementById("result").innerText = "改写中...";
+
+            const prompt = `你是英语写作教练。首先判断以下英文句子是否已经是地道的英语（美式风格），没有中式英语、语法错误或搭配不当。
+如果句子已经非常地道，请严格按以下格式输出（不要包含任何其他内容）：
+[CORRECT]
+一句鼓励用户的话（中文，友善夸奖）
+建议：一句针对如何进一步提升英语写作的建议（中文）
+
+如果句子有中式英语或不够地道，请按以下格式输出：
+[改写后的地道英语句子]
+Explanation: [用中文详细解释：具体哪里不地道、为什么，以及改写的理由。解释要包含错误类型（如搭配不当、直译、语法错误）和改写要点，控制在 50-100 字]
+
+用户句子：${input}`;
+
+            try {
+                // 关键修改：Netlify 函数路径
+                const response = await fetch('/.netlify/functions/convert', {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ prompt: prompt })
+                });
+                const data = await response.json();
+                if (data.error) throw new Error(data.error);
+
+                const raw = data.choices[0].message.content.trim();
+                if (raw.startsWith('[CORRECT]')) {
+                    const lines = raw.split('\n').map(l => l.trim()).filter(l => l);
+                    const encouragement = lines[1] || '你的英语表达很棒！';
+                    let suggestion = '可以尝试用更地道的表达或更丰富的词汇。';
+                    if (lines[2]) suggestion = lines[2].startsWith('建议：') ? lines[2].slice(3).trim() : lines[2];
+                    document.getElementById("result").innerHTML = `✅ 输入正确！<br><br>${encouragement}<br><br>📘 建议：${suggestion}`;
+                } else {
+                    document.getElementById("result").innerHTML = raw.replace(/\n/g, '<br>');
+                }
+            } catch (err) {
+                console.error(err);
+                document.getElementById("result").innerText = "❌ 请求失败，请检查 API Key 配置或网络。";
+            }
+        }
+    </script>
+</body>
+</html>
